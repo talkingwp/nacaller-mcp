@@ -1,0 +1,40 @@
+{
+  "name": "nacaller-mcp",
+  "version": "0.1.0",
+  "description": "NaCaller MCP server: let Claude Code, Codex, Cursor and other coding agents send voice OTPs, place AI calls and run campaigns with your API key.",
+  "type": "module",
+  "bin": {
+    "nacaller-mcp": "src/index.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node test/mock-test.mjs",
+    "selftest": "node src/index.js --selftest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2"
+  },
+  "license": "MIT",
+  "homepage": "https://nacaller.com/docs/ai-agents",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/talkingwp/nacaller-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "otp",
+    "missed-call-otp",
+    "voice-otp",
+    "india",
+    "phone-verification",
+    "ai-calling"
+  ]
+}
