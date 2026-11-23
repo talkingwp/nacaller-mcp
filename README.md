@@ -22,13 +22,13 @@ Replace `nc_live_xxx` with your key. Never commit it.
 **Claude Code**
 
 ```bash
-claude mcp add nacaller -e NACALLER_API_KEY=nc_live_xxx -- npx -y nacaller-mcp
+claude mcp add nacaller -e NACALLER_API_KEY=nc_live_xxx -- npx -y github:talkingwp/nacaller-mcp
 ```
 
 **Cursor** (`.cursor/mcp.json`)
 
 ```json
-{ "mcpServers": { "nacaller": { "command": "npx", "args": ["-y", "nacaller-mcp"], "env": { "NACALLER_API_KEY": "nc_live_xxx" } } } }
+{ "mcpServers": { "nacaller": { "command": "npx", "args": ["-y", "github:talkingwp/nacaller-mcp"], "env": { "NACALLER_API_KEY": "nc_live_xxx" } } } }
 ```
 
 **Codex** (`~/.codex/config.toml`)
@@ -36,20 +36,20 @@ claude mcp add nacaller -e NACALLER_API_KEY=nc_live_xxx -- npx -y nacaller-mcp
 ```toml
 [mcp_servers.nacaller]
 command = "npx"
-args = ["-y", "nacaller-mcp"]
+args = ["-y", "github:talkingwp/nacaller-mcp"]
 env = { NACALLER_API_KEY = "nc_live_xxx" }
 ```
 
 **Antigravity** (MCP config JSON, same shape as Cursor)
 
 ```json
-{ "mcpServers": { "nacaller": { "command": "npx", "args": ["-y", "nacaller-mcp"], "env": { "NACALLER_API_KEY": "nc_live_xxx" } } } }
+{ "mcpServers": { "nacaller": { "command": "npx", "args": ["-y", "github:talkingwp/nacaller-mcp"], "env": { "NACALLER_API_KEY": "nc_live_xxx" } } } }
 ```
 
 Check the key works without involving an agent (a harmless read, nothing is sent or called):
 
 ```bash
-NACALLER_API_KEY=nc_live_xxx npx -y nacaller-mcp --selftest
+NACALLER_API_KEY=nc_live_xxx npx -y github:talkingwp/nacaller-mcp --selftest
 ```
 
 ## Tools
