@@ -1,3 +1,7 @@
+<p align="center"><a href="https://nacaller.com"><img src="assets/banner.png" alt="NaCaller MCP server: add phone verification with one prompt" width="100%"></a></p>
+
+<p align="center"><a href="https://nacaller.com/docs/ai-agents">Docs</a> · <a href="https://nacaller.com/openapi.json">OpenAPI</a> · <a href="https://nacaller.com/missed-call-otp">Miss OTP</a> · <a href="https://nacaller.com/voice-otp">Voice OTP</a> · <a href="LICENSE">MIT</a></p>
+
 # NaCaller MCP server
 
 Lets Claude Code, Codex, Cursor, Antigravity and other MCP-capable coding agents use NaCaller with your API key: send a Voice OTP, start a missed-call verification, place AI calls, run campaigns and read results.
