@@ -1,6 +1,6 @@
 {
   "name": "nacaller-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "NaCaller MCP server: let Claude Code, Codex, Cursor and other coding agents send voice OTPs, place AI calls and run campaigns with your API key.",
   "type": "module",
   "bin": {

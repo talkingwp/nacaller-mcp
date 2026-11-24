@@ -9,7 +9,7 @@ Base URL: ${API_BASE_DEFAULT}  (JSON over HTTPS, Authorization: Bearer <key>)
 
 Key types, created in the dashboard, all SERVER SECRETS (env var, never browser code):
 - nck_live_...  verification key (one per site). Endpoints: /api/verify/*  (Miss OTP, Voice OTP)
-- nc_live_...   developer key with scopes (otp, calls, campaigns, read). Endpoints: /api/v1/*, and /api/verify/* when it holds the otp scope
+- nc_live_...   developer key with scopes (otp, calls, campaigns, read, agents, billing_link). Endpoints: /api/v1/*, and /api/verify/* when it holds the otp scope
 - nc_test_...   test key (Settings, Developers, tick Test key): same endpoints, everything simulated, nothing real happens. START HERE when building or when an agent is driving.
 
 Verification (nck_ key)
@@ -22,7 +22,13 @@ Errors: { "error": "message" } with an HTTP status (400 bad number, 401 bad key,
 Verify errors keep { "error": "message" } and also carry code and message; responses carry X-RateLimit-Limit/-Remaining and 429s Retry-After.
 
 Developer API (nc_live_ key), base /api/v1
-- GET  /agents
+- GET  /agents                                                    -> { data: [{ id, name, language, status }] } (status: active, paused or draft)
+- GET  /agents/:id    (scope agents)                              -> the agent in full
+- POST /agents        (scope agents) { name, role, prompt, greeting?, personality?, caller_name?, gender?, knowledge_base?, calling_rules?, booking_url?, brochure_url?, maps_url?, languages?, transfer_number?, transfer_whisper? }   -> 201, saved as a DRAFT
+- PATCH /agents/:id   (scope agents) any of those fields          -> the agent goes back to DRAFT
+- GET/POST /ivr-flows, GET/PATCH /ivr-flows/:id  (scope agents)   keypad flows: { name, languages?, flow:{ sponsor?, opt_out?, closing?, steps:[{type:"say",text} | {type:"ask",text,options:[{key,label,verdict?}]}] } }; also drafts
+- GET  /balance       (scope read)                                -> { wallet:{balance_inr}, plan:{minutes_remaining,...}, otp:{verification_credits,voice_credits} }
+- POST /balance/topup-link { amount_inr } (scope billing_link)    -> { url, charged:false }: a dashboard link a PERSON opens to pay. Charges nothing.
 - POST /calls { agent_id, phone, name?, variables?, language? }   -> 201 { id, status:"initiated" }
 - GET  /calls?status=&agent_id=&campaign_id=&limit=&cursor=       -> { data, has_more, next_cursor }
 - GET  /calls/:id                                                  -> detail with transcript and a signed recording_url
@@ -31,12 +37,14 @@ Developer API (nc_live_ key), base /api/v1
 Errors: { "error": { "code", "message" } }. Limit 300 requests/minute per key (429 rate_limited, Retry-After) and a daily call limit per key (default 200, 429 daily_limit_reached).
 Calls only go out 9 am to 9 pm India time (422 outside_calling_hours). Do-not-call numbers are never dialled. The key owner's own minutes and wallet pay.
 
-Scopes (set when the key is created; presets OTP only, Calling, Read only, Full access): otp, calls, campaigns, read (GET only). A refused call is 403 insufficient_scope naming the scope. Old keys with no scopes keep calls, campaigns and read, never OTP.
+Scopes (set when the key is created; presets OTP only, Calling, Read only, Full access): otp, calls, campaigns, read (GET only), agents, billing_link. Only Full access has agents and billing_link. A refused call is 403 insufficient_scope naming the scope. Old keys with no scopes keep calls, campaigns and read, never OTP, agents or billing_link.
+DRAFT-FIRST: an agent or keypad flow created or edited with a live key is a draft (status "draft"). A draft cannot place calls, run campaigns or answer a number (409 agent_draft). Only a person can activate it, with the Activate button on the Agents page in the dashboard; the API and these tools cannot. Editing a live agent puts it back to draft, so ask the human first. No delete exists. Test keys do all of this in a sandbox and store nothing.
+MONEY: nothing here charges or moves money. For a top-up, give the human the link from billing_topup_link and stop; never try to pay.
 Test keys (nc_test_): same validation and errors as live, simulated objects marked test:true, no phone rung, no credits or wallet, no records. OTP test code is always 123456. Use one whenever you only need to see the flow work.
 Campaign dry run: POST /api/v1/campaigns?dryRun=true returns { would_succeed, blockers, contacts:{received,valid,invalid,duplicates,opted_out,dialable}, estimated_cost_inr:{low,high,rate_per_minute_inr,assumptions}, wallet:{covers_estimate,shortfall_inr}, calling_hours, limits } and creates nothing.
 OpenAPI 3.1: https://nacaller.com/openapi.json
 
-NOT available today (do not invent): creating or editing agents or IVR flows, balance, recharge links, an SDK.`;
+NOT available today (do not invent): an SDK, deleting agents or flows, activating an agent through the API, paying or charging through the API, recorded IVR audio, voice selection, or anything not listed above.`;
 
 const OTP = `Two-call phone verification
 Use Miss OTP (missed call) first; offer Voice OTP ("get a call instead") as the fallback. Indian mobiles only (10 digits, starting 6 to 9).

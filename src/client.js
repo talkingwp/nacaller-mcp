@@ -7,7 +7,7 @@ const HINTS = {
   invalid_api_key: 'The key is wrong or revoked. Create a new one in the NaCaller dashboard (Settings, Developers).',
   phone_unverified: 'The account owner must verify their phone number in the dashboard first.',
   account_pending: 'The account is awaiting approval; calling is not available yet.',
-  insufficient_scope: 'This key was created without the scope this tool needs (see required_scope). A human can make a key with a wider preset in the dashboard (Settings, Developers). Do not retry.',
+  insufficient_scope: 'This key was created without the scope this tool needs (see required_scope). A human can make a key with a wider preset in the dashboard (Settings, Developers); agents and billing_link are only in Full access. Do not retry.',
   no_verify_app: 'The account has no OTP site yet. A human must create one under OTP in the dashboard.',
   rate_limited: 'Wait retry_after_seconds, then retry. Do not loop.',
   daily_limit_reached: 'This key hit its daily call limit (resets at midnight IST). Stop; ask the human.',
@@ -18,6 +18,11 @@ const HINTS = {
   number_blocked: 'This number cannot be called.',
   international_not_allowed: 'Only Indian numbers are enabled for this account.',
   calling_paused: 'Calling is paused on this account in the dashboard.',
+  agent_draft: 'This agent was saved through the API and has not been activated. Only a person can: tell the human to open Agents in the NaCaller dashboard and press Activate. You cannot, and must not retry.',
+  agent_limit_reached: 'The plan agent limit is reached. Tell the human; they can delete an agent or upgrade in the dashboard.',
+  is_ivr_flow: 'That id is a keypad flow. Use the ivr_* tools.',
+  ivr_flow_not_found: 'Call ivr_list and use one of the returned ids.',
+  wallet_unavailable: 'Adding money is not switched on for this account. Tell the human.',
 };
 const STATUS_HINTS = {
   401: 'The key was rejected. Check NACALLER_API_KEY: nc_live_ / nc_test_ keys serve calls, agents, campaigns (and OTP when created with the otp scope); nck_live_ keys serve OTP.',

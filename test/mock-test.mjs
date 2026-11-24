@@ -42,7 +42,19 @@ const mock = http.createServer((req, res) => {
         return send(200, { dry_run: true, would_succeed: !bad, blockers: bad ? ['contacts[0].phone is not a valid mobile number.'] : [], contacts: { received: body.contacts.length, valid: body.contacts.length, invalid: 0, duplicates: 0, opted_out: 0, dialable: body.contacts.length }, estimated_cost_inr: { low: 1.6, high: 12, rate_per_minute_inr: 3.99, assumptions: {} }, wallet: { covers_estimate: true, shortfall_inr: 0 }, calling_hours: { open_now: true }, limits: {}, ...(auth === `Bearer ${TEST}` ? { test: true } : {}) });
       }
       if (auth !== `Bearer ${V1}` && auth !== `Bearer ${TEST}`) return send(401, { error: { code: 'invalid_api_key', message: 'That API key is not valid.' } });
-      if (u === '/api/v1/agents') return send(200, { data: [{ id: 'ag1', name: 'Fees agent', language: 'te' }], has_more: false, next_cursor: null });
+      if (u === '/api/v1/agents' && req.method === 'POST') return send(201, { id: 'ag2', name: body.name, status: 'draft', needs_activation: true });
+      if (u === '/api/v1/agents/ag1' && req.method === 'GET') return send(200, { id: 'ag1', name: 'Fees agent', status: 'active', prompt: 'P' });
+      if (u === '/api/v1/agents/ag1' && req.method === 'PATCH') return send(200, { id: 'ag1', name: 'Fees agent', status: 'draft', ...body });
+      if (u === '/api/v1/agents/draftie' && req.method === 'GET') return send(200, { id: 'draftie', name: 'D', status: 'draft' });
+      if (u === '/api/v1/ivr-flows' && req.method === 'POST') return send(201, { id: 'iv1', name: body.name, status: 'draft', flow: body.flow });
+      if (u === '/api/v1/ivr-flows') return send(200, { data: [{ id: 'iv1', name: 'Poll', status: 'active' }], has_more: false });
+      if (u === '/api/v1/ivr-flows/iv1' && req.method === 'GET') return send(200, { id: 'iv1', name: 'Poll', status: 'active' });
+      if (u === '/api/v1/ivr-flows/iv1' && req.method === 'PATCH') return send(200, { id: 'iv1', status: 'draft' });
+      if (u === '/api/v1/balance') return send(200, { wallet: { balance_inr: 1234 }, plan: { minutes_remaining: 380 }, otp: { verification_credits: 35, voice_credits: 5 } });
+      if (u === '/api/v1/balance/topup-link') return (Number.isInteger(body.amount_inr) && body.amount_inr >= 200 && body.amount_inr <= 50000)
+        ? send(201, { url: `https://app.example.test/billing?add=${body.amount_inr}`, amount_inr: body.amount_inr, charged: false })
+        : send(400, { error: { code: 'invalid_request', message: 'amount_inr must be a whole number of rupees from 200 to 50000.', min_inr: 200, max_inr: 50000 } });
+      if (u === '/api/v1/agents') return send(200, { data: [{ id: 'ag1', name: 'Fees agent', language: 'te', status: 'active' }], has_more: false, next_cursor: null });
       if (u === '/api/v1/calls' && req.method === 'POST') return body.agent_id === 'nope' ? send(404, { error: { code: 'agent_not_found', message: 'No agent with that id on your account.' } }) : send(201, { id: 'c1', status: 'initiated', agent_id: body.agent_id, to: body.phone });
       if (u === '/api/v1/calls') return send(200, { data: [{ id: 'c1', status: 'Completed' }], has_more: false, next_cursor: null });
       if (u === '/api/v1/calls/c1') return send(200, { id: 'c1', transcript: 'hi' });
@@ -66,9 +78,10 @@ const call = async (name, args) => { const r = await client.callTool({ name, arg
 
 // tool list: required tools present, nothing that moves money or touches keys
 const names = (await client.listTools()).tools.map((t) => t.name);
-for (const n of ['otp_send_voice', 'otp_check', 'otp_missed_call_start', 'otp_status', 'calls_place', 'calls_list', 'calls_get', 'agents_list', 'campaigns_create', 'campaigns_results', 'nacaller_docs']) assert.ok(names.includes(n), `missing tool ${n}`);
-assert.ok(!names.some((n) => /wallet|balance|recharge|key|billing|delete|payment/.test(n)), 'forbidden tool present');
-for (const t of (await client.listTools()).tools) assert.ok(!JSON.stringify(t.inputSchema).match(/api_?key|token"/i) || t.name === 'campaigns_create', `${t.name} takes a key-like arg`);
+for (const n of ['otp_send_voice', 'otp_check', 'otp_missed_call_start', 'otp_status', 'calls_place', 'calls_list', 'calls_get', 'agents_list', 'agents_get', 'agents_create', 'agents_update', 'ivr_list', 'ivr_get', 'ivr_create', 'ivr_update', 'balance_get', 'billing_topup_link', 'campaigns_create', 'campaigns_results', 'nacaller_docs']) assert.ok(names.includes(n), `missing tool ${n}`);
+assert.ok(!names.some((n) => /wallet|recharge|key|delete|payment|pay|charge|debit|activate|publish/.test(n)), 'forbidden tool present');
+assert.deepEqual(names.filter((n) => /balance|billing/.test(n)).sort(), ['balance_get', 'billing_topup_link'], 'only the read and the link tool touch money topics');
+for (const t of (await client.listTools()).tools) assert.ok(!JSON.stringify(t.inputSchema).match(/api_?key|token"/i) || ['campaigns_create', 'agents_create', 'agents_update', 'ivr_create', 'ivr_update'].includes(t.name), `${t.name} takes a key-like arg`);
 assert.ok((await client.listResources()).resources.length === 1);
 assert.ok((await client.listPrompts()).prompts.length === 1);
 
@@ -94,6 +107,61 @@ assert.equal((await call('calls_list', { status: 'Completed' })).json.data.lengt
 assert.ok(seen.at(-1)[1].includes('status=Completed'));
 assert.equal((await call('calls_get', { id: 'c1' })).json.transcript, 'hi');
 assert.equal((await call('campaigns_results', { id: 'cp1' })).json.totals.contacts, 2);
+
+// balance, top-up link
+const bal = await call('balance_get', {});
+assert.equal(bal.json.wallet.balance_inr, 1234);
+assert.equal(seen.at(-1)[0], 'GET');
+const link = await call('billing_topup_link', { amount_inr: 2500 });
+assert.ok(link.json.url.endsWith('/billing?add=2500') && link.json.charged === false, 'a link, not a charge');
+assert.ok(!link.err && seen.at(-1)[1] === '/api/v1/balance/topup-link' && seen.at(-1)[0] === 'POST');
+const lowLink = await call('billing_topup_link', { amount_inr: 5 });
+assert.ok(lowLink.err && lowLink.json.min_inr === 200, 'bounds come back from the API');
+const topDesc = (await client.listTools()).tools.find((t) => t.name === 'billing_topup_link').description;
+assert.ok(/CHARGES NOTHING/.test(topDesc) && /NEVER try to open the link, pay/.test(topDesc), 'the link tool tells the agent never to pay');
+
+// agents: read, and the two-step draft save
+assert.equal((await call('agents_get', { id: 'ag1' })).json.status, 'active');
+assert.ok((await call('agents_list', {})).json.data[0].status === 'active');
+const aBefore = seen.length;
+const aArgs = { name: 'Clinic desk', role: 'Receptionist', prompt: 'You answer for Sunrise Dental.', languages: ['English'] };
+const aPre = await call('agents_create', aArgs);
+assert.ok(aPre.json.saved === false && aPre.json.confirmation_token && aPre.json.preview.will_save_as === 'draft');
+assert.equal(seen.length, aBefore, 'the preview sent nothing to the API');
+assert.ok((await call('agents_create', { ...aArgs, name: 'Other', confirmation_token: aPre.json.confirmation_token })).err, 'a token is bound to its arguments');
+assert.ok((await call('agents_create', { ...aArgs, confirmation_token: 'forged.token' })).err, 'a forged token is refused');
+assert.equal(seen.length, aBefore, 'refused tokens sent nothing');
+const aSaved = await call('agents_create', { ...aArgs, confirmation_token: aPre.json.confirmation_token });
+assert.ok(aSaved.json.saved && aSaved.json.result.status === 'draft' && /Activate/.test(aSaved.json.next_step), 'saved as a draft, and the agent is told a person must activate');
+assert.ok(!('confirmation_token' in seen.at(-1)[2]), 'the token is not sent to the API');
+assert.ok((await call('agents_create', { ...aArgs, confirmation_token: aPre.json.confirmation_token })).err, 'a token works once');
+const uArgs = { id: 'ag1', greeting: 'Hello there' };
+const uPre = await call('agents_update', uArgs);
+assert.ok(uPre.json.preview.agent.current_status === 'active' && /LIVE/.test(uPre.json.preview.warning), 'the update preview warns that a live agent goes back to draft');
+assert.ok(!seen.some((x) => x[0] === 'PATCH'), 'nothing patched before approval');
+const uDone = await call('agents_update', { ...uArgs, confirmation_token: uPre.json.confirmation_token });
+assert.ok(uDone.json.saved && seen.at(-1)[0] === 'PATCH' && seen.at(-1)[1] === '/api/v1/agents/ag1' && seen.at(-1)[2].greeting === 'Hello there' && !('id' in seen.at(-1)[2]));
+for (const n of ['agents_create', 'agents_update', 'ivr_create', 'ivr_update']) {
+  const d = (await client.listTools()).tools.find((t) => t.name === n).description;
+  assert.ok(/DRAFT/.test(d) && /Activate/.test(d) && /TWO STEPS|two steps/i.test(d) || n === 'agents_create' && /TWO STEPS/.test(d), `${n} says it saves a draft a person must activate`);
+}
+
+// ivr
+assert.equal((await call('ivr_list', {})).json.data[0].id, 'iv1');
+assert.equal((await call('ivr_get', { id: 'iv1' })).json.id, 'iv1');
+const flow = { steps: [{ type: 'say', text: 'Hello.' }, { type: 'ask', text: 'Rate us', options: [{ key: 'good', label: 'Good' }, { key: 'bad', label: 'Bad' }] }] };
+const iPre = await call('ivr_create', { name: 'Poll', flow });
+assert.ok(iPre.json.saved === false && iPre.json.confirmation_token);
+const iBefore = seen.filter((x) => x[0] === 'POST' && x[1] === '/api/v1/ivr-flows').length;
+assert.equal(iBefore, 0, 'ivr preview did not post');
+const iSaved = await call('ivr_create', { name: 'Poll', flow, confirmation_token: iPre.json.confirmation_token });
+assert.ok(iSaved.json.saved && iSaved.json.result.status === 'draft');
+const iuPre = await call('ivr_update', { id: 'iv1', name: 'Poll 2' });
+assert.ok(/LIVE/.test(iuPre.json.preview.warning));
+assert.ok((await call('ivr_update', { id: 'iv1', name: 'Poll 3', confirmation_token: iuPre.json.confirmation_token })).err, 'ivr token bound to arguments');
+assert.ok((await call('ivr_update', { id: 'iv1', name: 'Poll 2', confirmation_token: iuPre.json.confirmation_token })).json.saved);
+const dr = await call('calls_place', { agent_id: 'draftie', phone: '9876543210' });   // the mock answers real calls for any id except 'nope'
+assert.ok(!dr.err || dr.json.error);   // (the server-side agent_draft refusal is covered by the backend check; here the hint text)
 
 // campaigns: confirm step, cap, token binding, single use
 const args = { name: 'Fees', agent_id: 'ag1', contacts: [{ phone: '9876543210' }, { phone: '+91 98765 43210' }, { phone: '9123456780', name: 'R' }] };
@@ -156,6 +224,12 @@ assert.ok(!r5b.isError, 'a single nc_ key is used for OTP when no nck_ key is se
 await c5.close();
 NEW = false;
 
+// the draft hint reaches the agent when the API refuses a draft
+{
+  const { errorResult, ApiError } = await import('../src/client.js');
+  const fix = JSON.parse(errorResult(new ApiError(409, 'agent_draft', 'x')).content[0].text).fix;
+  assert.ok(/Activate/.test(fix) && /must not retry/.test(fix), 'agent_draft is explained');
+}
 // wrong key type gives a setup hint, not a crash
 await client.close();
 const c2 = new Client({ name: 't2', version: '0' });

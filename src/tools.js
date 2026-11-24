@@ -1,5 +1,6 @@
 // Tool definitions. Deliberately absent: anything that moves money, changes
-// billing or the account, deletes or creates keys, or reads other tenants.
+// billing or the account, activates an agent, deletes anything, creates or deletes keys, or reads other tenants.
+// billing_topup_link only fetches a LINK for a person to open; it charges nothing.
 import crypto from 'node:crypto';
 import { ApiError } from './client.js';
 import { LANGUAGES, TOPICS, TOPIC_NAMES } from './docs.js';
@@ -9,6 +10,27 @@ const last10 = (p) => String(p || '').replace(/\D/g, '').slice(-10);
 const bad = (m) => new ApiError(0, 'invalid_request', m);
 const PHONE = { type: 'string', description: 'Indian mobile number, 10 digits (e.g. 9876543210) or +91 form.' };
 const RO = { readOnlyHint: true, openWorldHint: true };
+const LANGS = { type: 'array', minItems: 1, maxItems: 10, items: { type: 'string' }, description: 'Language names or codes: English, Hindi, Telugu, Tamil, Kannada, Malayalam, Bengali, Marathi, Gujarati (en hi te ta kn ml bn mr gu).' };
+const AGENT_PROPS = {
+  name: { type: 'string', description: 'Max 80 chars.' }, role: { type: 'string', description: 'Short job title, e.g. Receptionist. Max 80 chars.' },
+  prompt: { type: 'string', description: 'Who the agent is and how it behaves on the call. Max 12000 chars. No unfilled [placeholders].' },
+  greeting: { type: 'string', description: 'Opening line, max 500 chars.' }, personality: { type: 'string', description: 'Tone and speech style, max 1000 chars.' },
+  caller_name: { type: 'string', description: 'The name the agent gives, max 40 chars.' }, gender: { type: 'string', enum: ['feminine', 'masculine'] },
+  knowledge_base: { type: 'string', description: 'Facts the agent may quote, max 20000 chars.' }, calling_rules: { type: 'string', description: 'How it must behave, max 4000 chars.' },
+  booking_url: { type: 'string', description: 'https only.' }, brochure_url: { type: 'string', description: 'https only.' }, maps_url: { type: 'string', description: 'https only.' },
+  languages: LANGS, transfer_number: { type: 'string', description: 'An Indian mobile (10 digits) a hot lead may be transferred to. Only use a number the human gave you.' },
+  transfer_whisper: { type: 'string', description: 'Max 200 chars.' },
+};
+const TEXT = { description: 'Text, or a map of language code to text, e.g. {"en":"Hello","hi":"Namaste"}.', oneOf: [{ type: 'string' }, { type: 'object', additionalProperties: { type: 'string' } }] };
+const FLOW = { type: 'object', additionalProperties: false, required: ['steps'], description: 'A keypad call. Steps play in order (max 12): there is no branching, no transfer and no loops. Key 9 always means stop these calls.', properties: {
+  sponsor: TEXT, opt_out: { type: 'boolean', description: 'Offer "press 9 to stop calls". Default true; leave it on.' }, closing: TEXT,
+  steps: { type: 'array', minItems: 1, maxItems: 12, items: { type: 'object', required: ['type', 'text'], additionalProperties: false, properties: {
+    id: { type: 'string', description: 'lowercase letters, digits, underscore. Optional.' }, type: { type: 'string', enum: ['say', 'ask'] }, text: TEXT, title: TEXT,
+    rotate: { type: 'boolean' }, menu_in_recording: { type: 'boolean' },
+    options: { type: 'array', minItems: 2, maxItems: 8, description: 'Only for type "ask".', items: { type: 'object', required: ['key', 'label'], additionalProperties: false, properties: {
+      key: { type: 'string', description: 'lowercase letters, digits, underscore; unique in the question.' }, label: TEXT, say: TEXT,
+      verdict: { type: 'string', enum: ['interested', 'callback', 'not_interested', 'wrong_person', 'do_not_call'] }, fixed: { type: 'boolean' } } } } } } } } };
+const TOKEN = { type: 'string', description: 'From the step 1 preview. Never invent one; only set it after the human approved the preview.' };
 
 export function createTools(client, { maxContacts = 100, env = process.env } = {}) {
   const secret = crypto.randomBytes(32);          // lives only in this process: tokens die with it
@@ -18,6 +40,26 @@ export function createTools(client, { maxContacts = 100, env = process.env } = {
   const digestOf = (v) => crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex');
   const v1 = (m, p, o) => client.request('v1', m, p, o);
   const otp = (m, p, o) => client.request('otp', m, p, o);
+
+  /* The confirm step for anything that saves an agent or a flow: the same idea as campaigns_create. Without a token
+     NOTHING is sent to the API (the preview reads at most); with one, it must match these exact arguments. */
+  const omitToken = ({ confirmation_token, ...rest }) => rest;
+  const tokenFor = (digest) => { const e = Date.now() + TOKEN_TTL_MS; return `${e}.${sign(digest, e)}`; };
+  async function gated(label, args, preview, commit, after) {
+    const payload = omitToken(args);
+    const digest = digestOf({ label, payload });
+    if (!args.confirmation_token) {
+      return { saved: false, preview: await preview(), confirmation_token: tokenFor(digest), next_step: `Show this preview to the human and ask for an explicit yes. Only then call ${label} again with the same arguments plus this confirmation_token (valid 10 minutes, works once).` };
+    }
+    const [expS, sig] = String(args.confirmation_token).split('.');
+    const exp = Number(expS);
+    const good = sig && Number.isFinite(exp) && (() => { const e = Buffer.from(sign(digest, exp)), g = Buffer.from(sig); return e.length === g.length && crypto.timingSafeEqual(e, g); })();
+    if (!good) throw bad('confirmation_token does not match these arguments (or is not from this server). Call again without a token and show the human the new preview.');
+    if (Date.now() > exp) throw bad('confirmation_token expired. Call again without a token and re-confirm with the human.');
+    if (used.has(args.confirmation_token)) throw bad('confirmation_token was already used. Nothing is saved twice from one confirmation; start over if you really want another.');
+    used.add(args.confirmation_token);
+    return { saved: true, result: await commit(payload), next_step: after };
+  }
 
   /* Does this server know POST /campaigns?dryRun=true? An older server would IGNORE the flag and create a real
      campaign, so it is never sent blind: one throwaway probe whose answer tells the two apart without creating
@@ -74,7 +116,7 @@ export function createTools(client, { maxContacts = 100, env = process.env } = {
     },
     {
       name: 'calls_place',
-      description: 'Place ONE real AI phone call with one of your agents. It dials a real person and spends the key owner\'s calling minutes, so confirm the number and agent with the human first and prefer their own number for tests. Calls only go out 9 am to 9 pm India time; do-not-call numbers are refused. Get agent_id from agents_list. Needs a developer key (nc_live_) with the calls scope. With a test key (nc_test_) nothing is dialled and the result is simulated (test: true).',
+      description: 'Place ONE real AI phone call with one of your agents. It dials a real person and spends the key owner\'s calling minutes, so confirm the number and agent with the human first and prefer their own number for tests. Calls only go out 9 am to 9 pm India time; do-not-call numbers are refused. Get agent_id from agents_list; a draft agent is refused with agent_draft. Needs a developer key (nc_live_) with the calls scope. With a test key (nc_test_) nothing is dialled and the result is simulated (test: true).',
       inputSchema: { type: 'object', required: ['agent_id', 'phone'], additionalProperties: false, properties: {
         agent_id: { type: 'string' }, phone: PHONE, name: { type: 'string', description: 'Contact name, max 80 chars.' },
         variables: { type: 'object', additionalProperties: { type: ['string', 'number'] }, description: 'Merge fields for the agent script, e.g. {"fee_amount":"4500"}. Max 20; names are lowercase letters, digits, underscore.' },
@@ -100,10 +142,81 @@ export function createTools(client, { maxContacts = 100, env = process.env } = {
     },
     {
       name: 'agents_list',
-      description: 'List the AI agents on the account (id, name, language). Use these ids in calls_place and campaigns_create. Agents cannot be created or edited through the API: that is done in the dashboard. Needs a developer key.',
+      description: 'List the AI agents on the account (id, name, language, status: active, paused or draft). Use active ids in calls_place and campaigns_create: a draft agent is refused (agent_draft) until a person activates it in the dashboard. To read an agent in full use agents_get; to save one, agents_create or agents_update. Needs a developer key (calls, campaigns, read or agents scope).',
       inputSchema: { type: 'object', additionalProperties: false, properties: { limit: { type: 'integer', minimum: 1, maximum: 100 }, cursor: { type: 'string' } } },
       annotations: RO,
       run: (a) => v1('GET', '/agents', { query: a }),
+    },
+    {
+      name: 'agents_get',
+      description: 'Read ONE agent in full: prompt, greeting, knowledge, languages, transfer number, links, and status (active, paused or draft). A draft cannot call until a person activates it. Needs a developer key with the agents scope (the plain agents_list works with a calls or read key).',
+      inputSchema: { type: 'object', required: ['id'], additionalProperties: false, properties: { id: { type: 'string' } } },
+      annotations: RO,
+      run: (a) => v1('GET', `/agents/${encodeURIComponent(a.id)}`),
+    },
+    {
+      name: 'agents_create',
+      description: 'Save a NEW agent as a DRAFT. A draft cannot place calls, run campaigns or answer a phone number: a PERSON must open the NaCaller dashboard, Agents page, listen to it and press Activate. You cannot activate it and there is no delete. TWO STEPS, like campaigns_create: first call with the fields and no confirmation_token returns a preview and a token and saves NOTHING; show the human the preview (name, role, prompt, greeting, languages, any transfer number) and ask for an explicit yes; only then call again with identical arguments plus the token. After saving, tell the human the agent is waiting for their Activate. Same rules as the dashboard (an Indian mobile for transfers, https links only, no unfilled [placeholders]); it counts against the plan\'s agent limit (agent_limit_reached). Needs a developer key with the agents scope. With a test key (nc_test_) nothing is stored.',
+      inputSchema: { type: 'object', required: ['name', 'role', 'prompt'], additionalProperties: false, properties: { ...AGENT_PROPS, confirmation_token: TOKEN } },
+      annotations: { openWorldHint: true, destructiveHint: false },
+      run: (a) => gated('agents_create', a, async () => ({ will_save_as: 'draft', agent: omitToken(a) }), (p) => v1('POST', '/agents', { body: p }), 'The agent is saved as a DRAFT. Tell the human to open Agents in the NaCaller dashboard, listen to it and press Activate. You cannot activate it.'),
+    },
+    {
+      name: 'agents_update',
+      description: 'Change fields of an existing agent. The agent goes back to DRAFT: if it was live it STOPS taking calls, campaign dials and inbound calls until a person presses Activate in the dashboard, so tell the human that before you do it. Only the fields you send change. TWO STEPS: the first call (no confirmation_token) saves nothing and returns what will change, the agent\'s current status and a token; show it to the human and wait for an explicit yes; then call again with identical arguments plus the token. You cannot activate it and there is no delete. Needs a developer key with the agents scope. With a test key (nc_test_) nothing is stored.',
+      inputSchema: { type: 'object', required: ['id'], additionalProperties: false, properties: { id: { type: 'string' }, ...AGENT_PROPS, confirmation_token: TOKEN } },
+      annotations: { openWorldHint: true, destructiveHint: true, idempotentHint: true },
+      run: (a) => gated('agents_update', a, async () => {
+        const cur = await v1('GET', `/agents/${encodeURIComponent(a.id)}`);
+        const { id, ...changes } = omitToken(a);
+        return { agent: { id: cur.id, name: cur.name, current_status: cur.status }, will_change: changes, will_save_as: 'draft', warning: cur.status === 'active' ? 'This agent is LIVE. Saving puts it back to draft: it stops taking calls, campaign dials and inbound calls until a person presses Activate in the dashboard.' : undefined };
+      }, (p) => { const { id, ...body } = p; return v1('PATCH', `/agents/${encodeURIComponent(id)}`, { body }); }, 'The agent is now a DRAFT. Tell the human to press Activate on the Agents page. You cannot activate it.'),
+    },
+    {
+      name: 'ivr_list',
+      description: 'List keypad (IVR) flows: scripted calls that play lines and record which key the person pressed (a poll, a survey or a one-way broadcast). A flow\'s id is the agent_id used by calls_place and campaigns_create. Needs a developer key with the agents scope.',
+      inputSchema: { type: 'object', additionalProperties: false, properties: { limit: { type: 'integer', minimum: 1, maximum: 100 }, cursor: { type: 'string' } } },
+      annotations: RO,
+      run: (a) => v1('GET', '/ivr-flows', { query: a }),
+    },
+    {
+      name: 'ivr_get',
+      description: 'Read one keypad (IVR) flow: its steps, options and status (draft until a person activates it). Needs a developer key with the agents scope.',
+      inputSchema: { type: 'object', required: ['id'], additionalProperties: false, properties: { id: { type: 'string' } } },
+      annotations: RO,
+      run: (a) => v1('GET', `/ivr-flows/${encodeURIComponent(a.id)}`),
+    },
+    {
+      name: 'ivr_create',
+      description: 'Save a NEW keypad (IVR) flow as a DRAFT: a scripted call with up to 12 steps, each a line to say or a question with 2 to 8 options (the person presses a key). Steps play in order: no branching, no transfers. It is strictly validated and refused with the reason if anything is off. A draft cannot call until a PERSON presses Activate in the NaCaller dashboard; you cannot, and there is no delete. TWO STEPS: first call (no confirmation_token) saves nothing and returns the flow and a token; show the human every line that will be spoken and get an explicit yes; then call again with identical arguments plus the token. Recorded audio is added in the dashboard. Counts against the plan\'s agent limit. Needs a developer key with the agents scope. With a test key (nc_test_) nothing is stored.',
+      inputSchema: { type: 'object', required: ['name', 'flow'], additionalProperties: false, properties: { name: { type: 'string', description: 'Max 80 chars.' }, languages: LANGS, flow: FLOW, confirmation_token: TOKEN } },
+      annotations: { openWorldHint: true, destructiveHint: false },
+      run: (a) => gated('ivr_create', a, async () => ({ will_save_as: 'draft', flow: omitToken(a) }), (p) => v1('POST', '/ivr-flows', { body: p }), 'The flow is saved as a DRAFT. Tell the human to open Agents in the NaCaller dashboard, listen to it and press Activate. You cannot activate it.'),
+    },
+    {
+      name: 'ivr_update',
+      description: 'Change a keypad (IVR) flow (name, languages or the whole flow, which is replaced). It goes back to DRAFT and, if it was live, stops being usable for calls and campaigns until a person presses Activate in the dashboard: tell the human first. TWO STEPS: first call (no confirmation_token) saves nothing and returns the change, the current status and a token; get an explicit yes from the human; then call again with identical arguments plus the token. Needs a developer key with the agents scope. With a test key (nc_test_) nothing is stored.',
+      inputSchema: { type: 'object', required: ['id'], additionalProperties: false, properties: { id: { type: 'string' }, name: { type: 'string' }, languages: LANGS, flow: FLOW, confirmation_token: TOKEN } },
+      annotations: { openWorldHint: true, destructiveHint: true, idempotentHint: true },
+      run: (a) => gated('ivr_update', a, async () => {
+        const cur = await v1('GET', `/ivr-flows/${encodeURIComponent(a.id)}`);
+        const { id, ...changes } = omitToken(a);
+        return { flow: { id: cur.id, name: cur.name, current_status: cur.status }, will_change: changes, will_save_as: 'draft', warning: cur.status === 'active' ? 'This flow is LIVE. Saving puts it back to draft until a person presses Activate in the dashboard.' : undefined };
+      }, (p) => { const { id, ...body } = p; return v1('PATCH', `/ivr-flows/${encodeURIComponent(id)}`, { body }); }, 'The flow is now a DRAFT. Tell the human to press Activate on the Agents page. You cannot activate it.'),
+    },
+    {
+      name: 'balance_get',
+      description: 'Read the account\'s balance: wallet in rupees, plan minutes included, used and remaining, and OTP verification and voice credits. Read only: it changes nothing. Use it before suggesting a campaign. Needs a developer key with the read scope. With a test key (nc_test_) the numbers are made up and marked test.',
+      inputSchema: { type: 'object', additionalProperties: false, properties: {} },
+      annotations: RO,
+      run: () => v1('GET', '/balance'),
+    },
+    {
+      name: 'billing_topup_link',
+      description: 'Get a LINK for the human to add money to the NaCaller wallet. This CHARGES NOTHING and moves no money: it returns a dashboard address with the amount filled in, and a person must open it signed in, check the amount and pay themselves. Give the human the link and the amount, then stop. NEVER try to open the link, pay, fill a payment form or work around it, and never ask for card details. Ask the human which amount (whole rupees, 200 to 50,000) rather than choosing one. Limited to 5 links an hour. Needs a developer key with the billing_link scope (not part of Read only). With a test key (nc_test_) the link is fake.',
+      inputSchema: { type: 'object', required: ['amount_inr'], additionalProperties: false, properties: { amount_inr: { type: 'integer', minimum: 200, maximum: 50000, description: 'Whole rupees the human asked to add.' } } },
+      annotations: { openWorldHint: true, destructiveHint: false },
+      run: (a) => v1('POST', '/balance/topup-link', { body: { amount_inr: a.amount_inr } }),
     },
     {
       name: 'campaigns_create',

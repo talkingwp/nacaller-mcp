@@ -21,9 +21,9 @@ export function buildServer({ env = process.env, fetchImpl } = {}) {
   const cap = parseInt(env.NACALLER_MAX_CONTACTS, 10);
   const tools = createTools(client, { maxContacts: Number.isFinite(cap) && cap > 0 ? cap : 100, env });
 
-  const server = new Server({ name: 'nacaller', version: '0.1.0' }, {
+  const server = new Server({ name: 'nacaller', version: '0.2.0' }, {
     capabilities: { tools: {}, resources: {}, prompts: {} },
-    instructions: 'NaCaller: Indian voice OTP, missed-call verification and AI calling. Read nacaller_docs("overview") first. Never ask the human to paste an API key into chat; it is configured in the server environment. Confirm with the human before any real call or campaign.',
+    instructions: 'NaCaller: Indian voice OTP, missed-call verification and AI calling. Read nacaller_docs("overview") first. Never ask the human to paste an API key into chat; it is configured in the server environment. Confirm with the human before any real call or campaign. Agents and keypad flows you save are DRAFTS that only a person can activate in the dashboard. Money: billing_topup_link only returns a link for the human; never try to pay.',
   });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: tools.list() }));
   server.setRequestHandler(CallToolRequestSchema, async (req) => {

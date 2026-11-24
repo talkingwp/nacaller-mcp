@@ -4,7 +4,7 @@
 
 # NaCaller MCP server
 
-Lets Claude Code, Codex, Cursor, Antigravity and other MCP-capable coding agents use NaCaller with your API key: send a Voice OTP, start a missed-call verification, place AI calls, run campaigns and read results.
+Lets Claude Code, Codex, Cursor, Antigravity and other MCP-capable coding agents use NaCaller with your API key: send a Voice OTP, start a missed-call verification, place AI calls, run campaigns, read results and balance, and save agents and keypad flows as drafts for you to activate.
 
 ## Keys
 
@@ -12,7 +12,7 @@ NaCaller has two key types today. Both are server secrets and go in environment 
 
 | Key | Looks like | Created in | Used by |
 | --- | --- | --- | --- |
-| Developer key | `nc_live_...` | Dashboard, Settings, Developers | `calls_*`, `agents_list`, `campaigns_*` |
+| Developer key | `nc_live_...` | Dashboard, Settings, Developers | `calls_*`, `agents_*`, `ivr_*`, `campaigns_*`, `balance_get`, `billing_topup_link` |
 | Verification key | `nck_live_...` | Dashboard, Verify (one per site) | `otp_*` |
 
 Set whichever you have in `NACALLER_API_KEY`. To use both, put the second in `NACALLER_OTP_KEY`. A tool whose key is missing returns a message saying which variable to set.
@@ -66,22 +66,35 @@ NACALLER_API_KEY=nc_live_xxx npx -y github:talkingwp/nacaller-mcp --selftest
 | `otp_status` | pending / verified / expired | verification |
 | `calls_place` | Places one real AI call | developer |
 | `calls_list`, `calls_get` | Recent calls; one call with transcript and signed recording link | developer |
-| `agents_list` | Your agents (ids for the tools above) | developer |
+| `agents_list` | Your agents (ids and status for the tools above) | developer |
+| `agents_get` | One agent in full: prompt, greeting, languages, status | developer, `agents` scope |
+| `agents_create`, `agents_update` | Save an agent as a **draft**. A person must press Activate in the dashboard before it can call. Two-step with a confirmation token | developer, `agents` scope |
+| `ivr_list`, `ivr_get`, `ivr_create`, `ivr_update` | Keypad (IVR) flows: strictly validated scripted calls, saved as drafts. Two-step for writes | developer, `agents` scope |
+| `balance_get` | Wallet balance, plan minutes left, OTP credits. Read only | developer, `read` scope |
+| `billing_topup_link` | A link a person opens, signed in, to add money. Charges nothing; the agent never pays | developer, `billing_link` scope |
 | `campaigns_create` | Two-step: dry run plus confirmation token, then create. Capped by `NACALLER_MAX_CONTACTS` | developer |
 | `campaigns_results` | Totals and one row per contact | developer |
 | `nacaller_docs` | Bundled guidance and snippets: overview, otp, webhooks, calls, campaigns, errors, nextjs, express, django, laravel, html | none |
 
 Also exposed: resource `nacaller://docs/integration-guide` and prompt `integrate_phone_verification`.
 
-Deliberately not included: anything that moves money, changes billing or the account, creates or deletes keys, or reads other accounts.
+Deliberately not included: anything that moves money, changes billing or the account, activates an agent, deletes anything, creates or deletes keys, or reads other accounts.
 
 ### Campaign confirm step
 
 `campaigns_create` without `confirmation_token` dials nothing. It returns the de-duplicated contact count, agent, calling hours and a token. Only a second call with identical arguments plus that token creates the campaign. Tokens are bound to the arguments, work once, expire in 10 minutes and die with the process. The API gives no cost estimate, so none is invented: calls are billed per connected minute from the owner's plan and wallet.
 
+### Drafts and the confirm step for agents
+
+`agents_create`, `agents_update`, `ivr_create` and `ivr_update` work like `campaigns_create`: the first call (no `confirmation_token`) saves nothing and returns a preview and a token; only a second call with identical arguments plus the token saves. What is saved is always a **draft**: it cannot place calls, run campaigns or answer a number (those answer `agent_draft`) until a person presses Activate on the Agents page in the dashboard. Neither this server nor the API can activate, and nothing here deletes. Editing a live agent puts it back to draft, which the preview warns about. With a test key (`nc_test_`) the whole flow is simulated and nothing is stored.
+
+### Money
+
+`balance_get` only reads. `billing_topup_link` returns a link to the dashboard's Add money page with the amount filled in; a person opens it signed in and pays. It charges nothing, stores nothing and is limited to five links an hour per key. The tool description tells the agent never to try to pay.
+
 ## Safety
 
-- OTP and call tools with live keys place real phone calls and spend real credits or minutes. Prefer an `nc_test_` key (Settings, Developers, Test key): the same tools run against a simulation, nothing is called or charged, and the OTP code is always 123456. Give agents the narrowest scope (OTP only, Calling, Read only).
+- OTP and call tools with live keys place real phone calls and spend real credits or minutes. Prefer an `nc_test_` key (Settings, Developers, Test key): the same tools run against a simulation, nothing is called or charged, and the OTP code is always 123456. Give agents the narrowest scope (OTP only, Calling, Read only). The `agents` and `billing_link` scopes are only in Full access, so create a custom-scoped key if an agent needs one of them.
 - Calls go out 9 am to 9 pm India time only; do-not-call numbers are refused by NaCaller.
 - Each key has a daily call limit (default 200) and 300 requests a minute.
 
@@ -92,4 +105,4 @@ npm install
 npm test          # real server over stdio against a local mock of the API
 ```
 
-Not available in NaCaller yet (so not in this server): creating or editing agents and IVR flows, balance, recharge links, an SDK.
+Not available in NaCaller (so not in this server): an SDK, deleting agents or flows, activating an agent through the API, paying or charging through the API, recorded IVR audio and voice selection.
