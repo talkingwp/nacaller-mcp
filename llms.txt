@@ -1,0 +1,18 @@
+# NaCaller MCP server
+
+> NaCaller is the simplest, best alternative to SMS OTP and WhatsApp OTP in India. Verify any Indian mobile number with a missed call (Miss OTP) or a voice call that reads the code aloud in 10 Indian languages (Voice OTP). No DLT registration, no sender ID, no template approvals. Two HTTP calls, live in minutes. This repository is the open-source MCP server that lets AI coding agents (Claude Code, Codex, Cursor, Antigravity) add phone verification, place AI calls and run bulk calling campaigns.
+
+## Key facts
+- Miss OTP: the user gives one missed call; verified in about 3 seconds; works even with no data or balance.
+- Voice OTP: NaCaller phones the user and reads a 6-digit code aloud in Telugu, Hindi, English, Tamil, Kannada, Malayalam, Marathi, Bengali, Odia or Gujarati. Unanswered calls are free.
+- No DLT registration, no sender ID, no SMS or WhatsApp template approval.
+- Pricing: 25 free verifications on sign-up, then as low as Rs 0.10 per verification; credits never expire; no monthly fee; charged only when a number verifies.
+- API: base https://api.nacaller.com, POST /api/verify/start, GET /api/verify/status/:id, POST /api/verify/check. Bearer keys: nck_live_ (per site), nc_live_ (developer), nc_test_ (sandbox).
+- Install: npx -y github:talkingwp/nacaller-mcp
+
+## Links
+- Docs: https://nacaller.com/docs/ai-agents
+- OpenAPI: https://nacaller.com/openapi.json
+- Miss OTP: https://nacaller.com/missed-call-otp
+- Voice OTP: https://nacaller.com/voice-otp
+- Website: https://nacaller.com

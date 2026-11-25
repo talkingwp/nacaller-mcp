@@ -1,7 +1,7 @@
 {
   "name": "nacaller-mcp",
   "version": "0.2.0",
-  "description": "NaCaller MCP server: let Claude Code, Codex, Cursor and other coding agents send voice OTPs, place AI calls and run campaigns with your API key.",
+  "description": "NaCaller: the simplest SMS and WhatsApp OTP alternative for India (Miss OTP, Voice OTP), plus bulk calling and AI voice agents, as an MCP server for Claude Code, Codex, Cursor and Antigravity.",
   "type": "module",
   "bin": {
     "nacaller-mcp": "src/index.js"
@@ -28,13 +28,21 @@
     "url": "git+https://github.com/talkingwp/nacaller-mcp.git"
   },
   "keywords": [
-    "mcp",
-    "model-context-protocol",
-    "otp",
-    "missed-call-otp",
-    "voice-otp",
+    "ai-calling",
+    "bulk-calling",
     "india",
+    "mcp",
+    "missed-call-otp",
+    "model-context-protocol",
+    "nacaller",
+    "otp",
+    "otp-api",
+    "otp-without-dlt",
     "phone-verification",
-    "ai-calling"
+    "phone-verification-api",
+    "sms-otp-alternative",
+    "voice-ai",
+    "voice-otp",
+    "whatsapp-otp-alternative"
   ]
 }

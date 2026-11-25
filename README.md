@@ -2,10 +2,66 @@
 
 <p align="center"><a href="https://nacaller.com/docs/ai-agents">Docs</a> · <a href="https://nacaller.com/openapi.json">OpenAPI</a> · <a href="https://nacaller.com/missed-call-otp">Miss OTP</a> · <a href="https://nacaller.com/voice-otp">Voice OTP</a> · <a href="LICENSE">MIT</a></p>
 
-# NaCaller MCP server
+# NaCaller: the simplest SMS and WhatsApp OTP alternative for India
+
+**NaCaller is the simplest, best alternative to SMS OTP and WhatsApp OTP in India.** Verify any Indian mobile number with a **missed call (Miss OTP)** or a **voice call that reads the code aloud (Voice OTP)**. No DLT registration, no sender ID, no template approvals. Live in minutes with two HTTP calls, or let your AI coding agent wire it in for you with this MCP server.
+
+## Why developers choose NaCaller over SMS OTP and WhatsApp OTP
+
+- **Live in minutes, not days.** SMS OTP needs DLT registration, a sender ID and approved templates. WhatsApp OTP needs business account onboarding and template approval. NaCaller needs none of it.
+- **No DLT, no templates, no approvals.** DLT entity registration alone is Rs 5,900 + GST, before sender ID and template approvals. Miss OTP and Voice OTP skip all of it.
+- **Verified in about 3 seconds.** Your user gives one missed call and the number is verified.
+- **Works even with no mobile data or balance** (Miss OTP). Nothing has to be delivered to the phone.
+- **Voice OTP in 10 Indian languages** when a missed call is not possible: Telugu, Hindi, English, Tamil, Kannada, Malayalam, Marathi, Bengali, Odia and Gujarati. Unanswered calls are free.
+- **Two HTTP calls, no SDK.** Start, then check or poll. HMAC-signed webhooks if you prefer push. An OpenAPI 3.1 spec is published.
+- **Pay only when it works.** Charged only when a number verifies (Voice OTP: only answered calls). 25 free verifications on sign-up, then as low as Rs 0.10 per verification. Prepaid credits never expire and there is no monthly fee.
+- **Safe to build against.** `nc_test_` sandbox keys simulate everything: no phone rings, nothing is charged.
+- **Built for AI coding agents.** Claude Code, Codex, Cursor and Antigravity can add phone verification to your app from one prompt using this MCP server.
+
+### SMS OTP vs WhatsApp OTP vs NaCaller
+
+| | SMS OTP | WhatsApp OTP | NaCaller Miss OTP | NaCaller Voice OTP |
+|---|---|---|---|---|
+| Setup before the first verification | DLT registration (Rs 5,900 + GST), sender ID, template approval | Business account onboarding, template approval | None | None |
+| Time to first verification | Days | Days | Minutes | Minutes |
+| Works with no data or balance | | No | Yes | |
+| Languages | | | n/a | 10 Indian languages |
+
+### Quick start: two HTTP calls
+
+```bash
+# 1. Start a Miss OTP verification (server side, your nck_live_ or nc_test_ key)
+curl -X POST https://api.nacaller.com/api/verify/start \
+  -H "Authorization: Bearer $NACALLER_KEY" -H "Content-Type: application/json" \
+  -d '{"phone":"9876543210","reference":"user_123"}'
+# -> { "requestId": "...", "callNumber": "...", "instruction": "Give a missed call to ...", "expiresAt": "..." }
+
+# 2. Poll until the user has given the missed call
+curl https://api.nacaller.com/api/verify/status/REQUEST_ID -H "Authorization: Bearer $NACALLER_KEY"
+# -> { "status": "verified", "verified": true }
+```
+
+Voice OTP is the same start call with `{"method":"voice","language":"hi"}`, then `POST /api/verify/check { id, code }`. Full guide: [nacaller.com/docs/ai-agents](https://nacaller.com/docs/ai-agents).
+
+### FAQ
+
+**What is the best SMS OTP alternative in India?** NaCaller. Miss OTP verifies a mobile number from one missed call, with no SMS, no DLT registration and no template approval.
+
+**Is there a WhatsApp OTP alternative that needs no template approval?** Yes. Miss OTP and Voice OTP need no business account and no templates.
+
+**How do I verify phone numbers in India without DLT?** Use Miss OTP (a missed call) or Voice OTP (a call that reads a 6-digit code). Neither uses SMS, so DLT does not apply.
+
+**How does missed call OTP work?** Your server calls `/api/verify/start`. The user gives a missed call to the number returned, and `/api/verify/status` turns `verified` in about 3 seconds.
+
+**What is Voice OTP?** NaCaller phones the user and reads a 6-digit code aloud in one of 10 Indian languages. The user types it, and your server checks it with `/api/verify/check`.
+
+**How much does it cost?** 25 free verifications on sign-up, then as low as Rs 0.10 per verification. Credits never expire. No monthly fee.
+
+**Can my AI coding agent integrate it?** Yes. Install this MCP server (below) and ask Claude Code, Codex, Cursor or Antigravity to add phone verification to your signup form.
+
+## The MCP server
 
 Lets Claude Code, Codex, Cursor, Antigravity and other MCP-capable coding agents use NaCaller with your API key: send a Voice OTP, start a missed-call verification, place AI calls, run campaigns, read results and balance, and save agents and keypad flows as drafts for you to activate.
-
 
 ## Watch: Miss OTP and Voice OTP in 57 seconds
 
@@ -130,3 +186,5 @@ Not available in NaCaller (so not in this server): an SDK, deleting agents or fl
 Built by **A. Niraj Kumar**, Managing Partner and Lead Developer at Webchilly Infoways. He has been building for the web for **19+ years**, since 2007, shipping 2,500+ websites for 1,300+ clients worldwide (WordPress and full-stack: PHP, JavaScript, React, Next.js, PostgreSQL), and has focused on AI voice agents and communication platforms since 2025. NaCaller is the AI calling platform he built for Indian businesses.
 
 [LinkedIn](https://www.linkedin.com/in/anirajkumar) · [nacaller.com](https://nacaller.com)
+
+<sub>Keywords: SMS OTP alternative India, WhatsApp OTP alternative, missed call OTP API, Miss OTP, voice OTP API, phone number verification API India, OTP without DLT, mobile number verification, OTP API for developers, MCP server for OTP, AI voice agent, bulk calling API.</sub>
