@@ -13,6 +13,17 @@ Lets Claude Code, Codex, Cursor, Antigravity and other MCP-capable coding agents
 
 Click the picture to play the video: how Miss OTP (verify with one missed call) and Voice OTP (a call that reads the code aloud, in ten Indian languages) replace SMS and WhatsApp OTP, with no DLT registration.
 
+### More videos
+
+<table><tr>
+<td align="center" width="25%"><a href="media/the-dlt-wait.mp4"><img src="media/the-dlt-wait-poster.jpg" alt="The DLT wait" width="200"></a><br><sub><b>The DLT wait</b><br>English, 30 s</sub></td>
+<td align="center" width="25%"><a href="media/bulk-calling-campaigns.mp4"><img src="media/bulk-calling-campaigns-poster.jpg" alt="Bulk calling campaigns" width="200"></a><br><sub><b>Bulk calling campaigns</b><br>Telugu, 22 s</sub></td>
+<td align="center" width="25%"><a href="media/ai-receptionist.mp4"><img src="media/ai-receptionist-poster.jpg" alt="AI receptionist" width="200"></a><br><sub><b>AI receptionist</b><br>Telugu, 21 s</sub></td>
+<td align="center" width="25%"><a href="media/ten-languages.mp4"><img src="media/ten-languages-poster.jpg" alt="One agent, 10 languages" width="200"></a><br><sub><b>One agent, 10 languages</b><br>Telugu, 65 s</sub></td>
+</tr></table>
+
+Click a picture to play it.
+
 ## Keys
 
 NaCaller has two key types today. Both are server secrets and go in environment variables only; this server never accepts a key as a tool argument and never prints one.
