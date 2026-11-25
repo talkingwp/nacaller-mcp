@@ -1,4 +1,4 @@
-<p align="center"><a href="https://nacaller.com"><img src="assets/banner.png" alt="NaCaller MCP server: add phone verification with one prompt" width="100%"></a></p>
+<p align="center"><a href="https://nacaller.com"><img src="assets/banner.png" alt="NaCaller MCP server: bulk calling, AI voice calls and OTP from one prompt" width="100%"></a></p>
 
 <p align="center"><a href="https://nacaller.com/docs/ai-agents">Docs</a> · <a href="https://nacaller.com/openapi.json">OpenAPI</a> · <a href="https://nacaller.com/missed-call-otp">Miss OTP</a> · <a href="https://nacaller.com/voice-otp">Voice OTP</a> · <a href="LICENSE">MIT</a></p>
 
