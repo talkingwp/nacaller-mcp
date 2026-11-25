@@ -106,3 +106,9 @@ npm test          # real server over stdio against a local mock of the API
 ```
 
 Not available in NaCaller (so not in this server): an SDK, deleting agents or flows, activating an agent through the API, paying or charging through the API, recorded IVR audio and voice selection.
+
+## About the author
+
+Built by **A. Niraj Kumar**, Managing Partner and Lead Developer at Webchilly Infoways. He has been building for the web for **19+ years**, since 2007, shipping 2,500+ websites for 1,300+ clients worldwide (WordPress and full-stack: PHP, JavaScript, React, Next.js, PostgreSQL), and has focused on AI voice agents and communication platforms since 2025. NaCaller is the AI calling platform he built for Indian businesses.
+
+[LinkedIn](https://www.linkedin.com/in/anirajkumar) · [nacaller.com](https://nacaller.com)
