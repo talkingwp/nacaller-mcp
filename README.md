@@ -6,6 +6,13 @@
 
 Lets Claude Code, Codex, Cursor, Antigravity and other MCP-capable coding agents use NaCaller with your API key: send a Voice OTP, start a missed-call verification, place AI calls, run campaigns, read results and balance, and save agents and keypad flows as drafts for you to activate.
 
+
+## Watch: Miss OTP and Voice OTP in 57 seconds
+
+<p align="center"><a href="media/miss-otp-voice-otp-explainer.mp4"><img src="media/miss-otp-voice-otp-explainer-poster.jpg" alt="Watch the NaCaller Miss OTP and Voice OTP explainer video" width="260"></a></p>
+
+Click the picture to play the video: how Miss OTP (verify with one missed call) and Voice OTP (a call that reads the code aloud, in ten Indian languages) replace SMS and WhatsApp OTP, with no DLT registration.
+
 ## Keys
 
 NaCaller has two key types today. Both are server secrets and go in environment variables only; this server never accepts a key as a tool argument and never prints one.
