@@ -30,16 +30,22 @@
 ### Quick start: two HTTP calls
 
 ```bash
-# 1. Start a Miss OTP verification (server side, your nck_live_ or nc_test_ key)
+# Keep the key in ONE server env var, NACALLER_API_KEY (an nck_live_ site key, an nc_live_ key with the otp scope, or an nc_test_ key while building). Node 18+ if you use fetch.
+# 1. Start a Miss OTP verification (server side). A plain 10-digit number or +91... both work.
 curl -X POST https://api.nacaller.com/api/verify/start \
-  -H "Authorization: Bearer $NACALLER_KEY" -H "Content-Type: application/json" \
-  -d '{"phone":"9876543210","reference":"user_123"}'
-# -> { "requestId": "...", "callNumber": "...", "instruction": "Give a missed call to ...", "expiresAt": "..." }
+  -H "Authorization: Bearer $NACALLER_API_KEY" -H "Content-Type: application/json" \
+  -d '{"phone":"9876543210","reference":"9876543210"}'
+# -> { "requestId": "...", "phone": "9876543210", "callNumber": "...", "instruction": "Give a missed call to ...", "expiresAt": "..." }
+# Save requestId -> phone on YOUR server now.
 
 # 2. Poll until the user has given the missed call
-curl https://api.nacaller.com/api/verify/status/REQUEST_ID -H "Authorization: Bearer $NACALLER_KEY"
-# -> { "status": "verified", "verified": true }
+curl https://api.nacaller.com/api/verify/status/REQUEST_ID -H "Authorization: Bearer $NACALLER_API_KEY"
+# -> { "requestId": "...", "phone": "9876543210", "reference": "9876543210", "status": "verified", "verified": true, ... }
 ```
+
+**Bind the verification to the phone.** A verified `requestId` only proves the phone it was started for. At signup, require that the `requestId` was issued for exactly the phone being submitted (and that `status.phone` equals it), and accept each `requestId` once. Otherwise a user can verify their own number and sign up with someone else's, or reuse one verification for many accounts. The framework examples in `nacaller_docs` (`express`, `nextjs`, `django`, `laravel`, `html`) do this.
+
+**Testing with an `nc_test_` key.** Accepted on `/api/verify/start`, `/status` and `/check`. A missed-call start returns `callNumber` `+910000000000` and an instruction saying no call is needed; the request reads as verified about 3 seconds later. Voice OTP returns `test_code` `123456` and `/check` accepts it. Nothing rings and no credit is used.
 
 Voice OTP is the same start call with `{"method":"voice","language":"hi"}`, then `POST /api/verify/check { id, code }`. Full guide: [nacaller.com/docs/ai-agents](https://nacaller.com/docs/ai-agents).
 

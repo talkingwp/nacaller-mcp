@@ -183,6 +183,14 @@ assert.ok((await call('campaigns_create', { ...args, contacts: [{ phone: '123' }
 // docs
 for (const t of ['overview', 'otp', 'nextjs', 'express', 'django', 'laravel', 'html', 'webhooks', 'errors']) assert.ok((await call('nacaller_docs', { topic: t })).text.length > 100, t);
 assert.ok((await call('nacaller_docs', { topic: 'zzz' })).err);
+// every framework example binds the verification to the phone, uses the one env var and no user id
+for (const t of ['nextjs', 'express', 'django', 'laravel', 'html']) {
+  const text = (await call('nacaller_docs', { topic: t })).text;
+  assert.ok(!/NACALLER_KEY|req\.user|request\.user|userId/.test(text), `${t}: stale key name or user id`);
+  assert.ok(/signup/.test(text) && /issued|nc_issued/.test(text), `${t}: no signup binding`);
+  if (t !== 'html') assert.ok(text.includes('NACALLER_API_KEY') && /phone/.test(text), `${t}: key env`);
+}
+assert.ok((await call('nacaller_docs', { topic: 'otp' })).text.includes('Testing with an nc_test_ key'));
 
 // ── a server WITH the dry-run endpoint: real estimate, gated token, and nothing created by the dry run ──
 NEW = true;

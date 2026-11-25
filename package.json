@@ -1,6 +1,6 @@
 {
   "name": "nacaller-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "NaCaller: the simplest SMS and WhatsApp OTP alternative for India (Miss OTP, Voice OTP), plus bulk calling and AI voice agents, as an MCP server for Claude Code, Codex, Cursor and Antigravity.",
   "type": "module",
   "bin": {
